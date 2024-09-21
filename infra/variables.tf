@@ -22,8 +22,17 @@ variable "vpc_name" {
     default = "ron-proj-vpc"
 }
 
-variable "public_subnets_list" {
-    description = "the vpc public subnets list"
-    type = list(string)
-    default = ["10.1.101.0/24", "10.1.102.0/24"]
+variable "instance_names" {
+  description = "Map of instance names"
+  type        = map(string)
+  default = {
+    "ron-proj-ec2-instance-1" = "web-server"
+    "ron-proj-ec2-instance-2" = "db-server"
+  }
 }
+
+# variable "instance_names" {
+#     description = "the vpc public subnets list"
+#     type = list(string)
+#     default = ["ron-proj-ec2-instance-1", "ron-proj-ec2-instance-2"]
+# }

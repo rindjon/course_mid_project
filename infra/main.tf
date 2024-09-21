@@ -11,7 +11,7 @@ module "vpc" {
 
   azs             = ["us-east-1a", "us-east-1b"]
   private_subnets = ["10.1.1.0/24", "10.1.2.0/24", "10.1.3.0/24"]
-  public_subnets  = var.public_subnets_list
+  public_subnets  = ["10.1.101.0/24", "10.1.102.0/24"]
 
   enable_nat_gateway = true
 
@@ -26,28 +26,18 @@ module "vpc" {
 #    EC2
 ############################################
 
-# Convert the list of instance names to a map where the key is the instance name
-locals {
-  subnet_map = { for idx, subnet_name in var.public_subnets_list : subnet_name => idx }
-}
-
 # EC2 Instance in Public Subnet using the ec2-instance module
 module "ec2_instance" {
   source  = "terraform-aws-modules/ec2-instance/aws"
-  version = "5.0.0"
-  depends_on = [ module.vpc ]
+  depends_on = [ module.ec2_security_group ]
 
-  # for_each = local.subnet_map
+  # for_each = toset(var.public_subnets_list)
+  for_each = var.instance_names
 
-  #name = "public-ec2-instance-num-${index(var.public_subnets_list, each.value)}"
-  name = "public-ec2-instance-num"
-  # instance_count = 1
-
-  # ami           = "ami-0182f373e66f89c85"
+  name          = each.key
   instance_type = "t2.micro"
-
-  #subnet_id = element(module.vpc.private_subnets, index(var.public_subnets_list, each.value))
-  subnet_id = module.vpc.private_subnets[0]
+  key_name      = "vockey"
+  subnet_id     = element(module.vpc.public_subnets, index(keys(var.instance_names), each.key))
 
   associate_public_ip_address = true
 
@@ -62,6 +52,7 @@ module "ec2_instance" {
               INSTANCE_ID=$(curl http://169.254.169.254/latest/meta-data/instance-id)
               INSTANCE_IP=$(curl http://169.254.169.254/latest/meta-data/local-ipv4)
               sudo echo "<h1>EC2 instance $INSTANCE_ID IP $INSTANCE_IP</h1>" > /var/www/html/index.html
+              # sudo echo "<h1>EC2 instance</h1>" > /var/www/html/index.html
               EOF
 
   vpc_security_group_ids = [module.ec2_security_group.security_group_id]
@@ -76,7 +67,7 @@ module "ec2_instance" {
 # Security Group for EC2 instance
 module "ec2_security_group" {
   source  = "terraform-aws-modules/security-group/aws"
-  version = "5.0.0"
+  depends_on = [ module.vpc ]
 
   name        = "${var.project_prefix}-public-ec2-sg"
   description = "Security group for public EC2 instance"
