@@ -19,13 +19,18 @@ output "public_subnets" {
 }
 
 output "ec2_id" {
-  description = "The ID of the EC2"
+  description = "The ID of  EC2"
   value = { for instance_key, instance in module.ec2_instance : instance_key => instance.id }
 }
 
 output "ec2_ip_public" {
-  description = "The ID of the EC2"
+  description = "The public IP of  EC2"
   value = { for instance_key, instance in module.ec2_instance : instance_key => instance.public_ip }
+}
+
+output "ec2_ip_private" {
+  description = "The private IP of  EC2"
+  value = { for instance_key, instance in module.ec2_instance : instance_key => instance.private_ip }
 }
 
 # output "ec2_id" {

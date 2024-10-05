@@ -26,13 +26,82 @@ variable "instance_names" {
   description = "Map of instance names"
   type        = map(string)
   default = {
-    "ron-proj-ec2-instance-1" = "web-server"
-    "ron-proj-ec2-instance-2" = "db-server"
+    "ron-proj-ec2-instance-1" = "web-server-1"
+    "ron-proj-ec2-instance-2" = "web-server-2"
   }
 }
 
-# variable "instance_names" {
-#     description = "the vpc public subnets list"
-#     type = list(string)
-#     default = ["ron-proj-ec2-instance-1", "ron-proj-ec2-instance-2"]
-# }
+variable "ec2_instances" {
+  type = map(object({
+    user_data = string
+  }))
+  default = {
+    "ron-proj-ec2-instance-1" = {
+      user_data = <<-EOF
+        #!/bin/bash
+        sudo yum update -y
+        sudo yum install -y httpd
+        sudo yum install -y docker
+        sudo service docker start
+        sudo chkconfig docker on
+        sudo systemctl start httpd
+        sudo systemctl enable httpd
+        sudo mkdir -p /var/www/html
+        sudo touch /var/www/html/index.html
+        INSTANCE_ID=$(curl http://169.254.169.254/latest/meta-data/instance-id)
+        INSTANCE_IP=$(curl http://169.254.169.254/latest/meta-data/local-ipv4)
+        sudo echo "<h1>EC2 instance $INSTANCE_ID IP $INSTANCE_IP</h1>" > /var/www/html/index.html
+        sudo docker pull prom/node-exporter
+        sudo docker run -d --name=node-exporter -p 9100:9100 prom/node-exporter
+        EOF
+    }
+    "ron-proj-ec2-instance-2" = {
+      user_data = <<-EOF
+        #!/bin/bash
+        sudo yum update -y
+        sudo yum install -y httpd
+        sudo yum install -y docker
+        sudo service docker start
+        sudo chkconfig docker on
+        sudo systemctl start httpd
+        sudo systemctl enable httpd
+        sudo mkdir -p /var/www/html
+        sudo touch /var/www/html/index.html
+        INSTANCE_ID=$(curl http://169.254.169.254/latest/meta-data/instance-id)
+        INSTANCE_IP=$(curl http://169.254.169.254/latest/meta-data/local-ipv4)
+        sudo echo "<h1>EC2 instance $INSTANCE_ID IP $INSTANCE_IP</h1>" > /var/www/html/index.html
+        sudo docker pull prom/node-exporter
+        sudo docker run -d --name=node-exporter -p 9100:9100 prom/node-exporter
+        EOF
+    }
+  }
+}
+variable "ec2_monitoring_user_data" {
+    description = "the user data of the monitoring instance"
+    type = string
+    default = <<-EOF
+        sudo yum update -y
+        sudo yum install -y git
+        sudo yum install -y docker
+        sudo service docker start
+        sudo usermod -a -G docker ec2-user
+        sudo chkconfig docker on
+        sudo curl -L "https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+        sudo chmod +x /usr/local/bin/docker-compose
+        git clone https://github.com/rindjon/sys_monitoring.git /home/ec2-user/sys_monitoring
+        cd /home/ec2-user/sys_monitoring
+        sudo chmod +x ./prometheus/adjust_mon_targets.sh
+        ./prometheus/adjust_mon_targets.sh
+        docker-compose up -d
+        EOF
+}
+
+  #       # sudo docker pull grafana/grafana
+  #       # sudo docker pull prom/prometheus
+  #       # docker network create monitoring
+  #       # sudo docker volume create my_grafana_data
+  #       # sudo docker volume create my_prom_data
+  #       # sudo docker run -d --name=grafana --network=monitoring -p 3000:3000 --mount source=my_grafana_data,target=/var/lib/grafana grafana/grafana
+  #       # sudo docker run -d --name=prometheus --network=monitoring -p 9090:9090 --mount source=my_prom_data,target=/prometheus prom/prometheus
+  #       EOF
+  

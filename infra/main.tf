@@ -31,38 +31,64 @@ module "ec2_instance" {
   source  = "terraform-aws-modules/ec2-instance/aws"
   depends_on = [ module.ec2_security_group ]
 
-  # for_each = toset(var.public_subnets_list)
-  for_each = var.instance_names
+  for_each = var.ec2_instances
 
   name          = each.key
   instance_type = "t2.micro"
   key_name      = "vockey"
-  subnet_id     = element(module.vpc.public_subnets, index(keys(var.instance_names), each.key))
+  subnet_id     = element(module.vpc.public_subnets, index(keys(var.ec2_instances), each.key))
 
   associate_public_ip_address = true
 
-  user_data = <<-EOF
-              #!/bin/bash
-              sudo yum update -y
-              sudo yum install -y httpd
-              sudo systemctl start httpd
-              sudo systemctl enable httpd
-              sudo mkdir -p /var/www/html
-              sudo touch /var/www/html/index.html
-              INSTANCE_ID=$(curl http://169.254.169.254/latest/meta-data/instance-id)
-              INSTANCE_IP=$(curl http://169.254.169.254/latest/meta-data/local-ipv4)
-              sudo echo "<h1>EC2 instance $INSTANCE_ID IP $INSTANCE_IP</h1>" > /var/www/html/index.html
-              # sudo echo "<h1>EC2 instance</h1>" > /var/www/html/index.html
-              EOF
+  user_data = each.value.user_data
 
   vpc_security_group_ids = [module.ec2_security_group.security_group_id]
-
   tags = {
-    Name        = "${var.project_prefix}-public-ec2-instance"
+    Name        = "${var.project_prefix}-${each.key}"
     Environment = "dev"
     Terraform   = "true"
   }
 }
+
+# Locals to hold the public and private IPs of all EC2 instances
+locals {
+  ec2_public_ips = {
+    for instance_key, instance in module.ec2_instance :
+    instance_key => instance.public_ip
+  }
+
+  ec2_private_ips = {
+    for instance_key, instance in module.ec2_instance :
+    instance_key => instance.private_ip
+  }
+}
+
+# EC2 Instance for monitoring
+module "ec2_instance_monitor" {
+  source  = "terraform-aws-modules/ec2-instance/aws"
+  depends_on = [ module.ec2_instance ]
+
+  name          = "ron-proj-ec2-instance-monitoring"
+  instance_type = "t2.micro"
+  key_name      = "vockey"
+  subnet_id     = element(module.vpc.public_subnets, 0)
+
+  associate_public_ip_address = true
+
+  user_data = <<-EOF
+        #!/bin/bash
+        echo "${join("\n", values(local.ec2_private_ips))}" > /etc/mon_target_inst_ip
+        ${var.ec2_monitoring_user_data}
+        EOF
+
+  vpc_security_group_ids = [module.ec2_security_group.security_group_id]
+  tags = {
+    Name        = "${var.project_prefix}-ec2-instance-monitoring"
+    Environment = "dev"
+    Terraform   = "true"
+  }
+}
+
 
 # Security Group for EC2 instance
 module "ec2_security_group" {
@@ -88,6 +114,28 @@ module "ec2_security_group" {
       protocol    = "tcp"
       cidr_blocks = "0.0.0.0/0"
     },
+    {
+      description = "Allow grafana"
+      from_port   = 3000
+      to_port     = 3000
+      protocol    = "tcp"
+      cidr_blocks = "0.0.0.0/0"
+    },
+    {
+      description = "Allow prometheus"
+      from_port   = 9090
+      to_port     = 9090
+      protocol    = "tcp"
+      cidr_blocks = "0.0.0.0/0"
+    },
+    {
+      description = "Allow node-exporter"
+      from_port   = 9100
+      to_port     = 9100
+      protocol    = "tcp"
+      cidr_blocks = "0.0.0.0/0"
+    },
+
     {
       description = "Allow HTTPS"
       from_port   = 443
