@@ -83,25 +83,18 @@ variable "ec2_monitoring_user_data" {
         sudo yum update -y
         sudo yum install -y git
         sudo yum install -y docker
-        sudo service docker start
-        sudo usermod -a -G docker ec2-user
-        sudo chkconfig docker on
         sudo curl -L "https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
         sudo chmod +x /usr/local/bin/docker-compose
-        git clone https://github.com/rindjon/sys_monitoring.git /home/ec2-user/sys_monitoring
+        sudo usermod -a -G docker ec2-user
+        sudo service docker start
+        sudo chkconfig docker on
+        sudo git clone https://github.com/rindjon/sys_monitoring.git /home/ec2-user/sys_monitoring
         cd /home/ec2-user/sys_monitoring
         sudo chmod +x ./prometheus/adjust_mon_targets.sh
-        ./prometheus/adjust_mon_targets.sh
-        docker-compose up -d
+        sudo ./prometheus/adjust_mon_targets.sh
+        sudo ln -s /usr/local/bin/docker-compose /usr/bin/docker-compose
+        sudo docker-compose up -d
         EOF
 }
 
-  #       # sudo docker pull grafana/grafana
-  #       # sudo docker pull prom/prometheus
-  #       # docker network create monitoring
-  #       # sudo docker volume create my_grafana_data
-  #       # sudo docker volume create my_prom_data
-  #       # sudo docker run -d --name=grafana --network=monitoring -p 3000:3000 --mount source=my_grafana_data,target=/var/lib/grafana grafana/grafana
-  #       # sudo docker run -d --name=prometheus --network=monitoring -p 9090:9090 --mount source=my_prom_data,target=/prometheus prom/prometheus
-  #       EOF
   
