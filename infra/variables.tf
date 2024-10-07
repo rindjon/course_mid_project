@@ -90,7 +90,9 @@ variable "ec2_monitoring_user_data" {
         sudo chkconfig docker on
         sudo git clone https://github.com/rindjon/sys_monitoring.git /home/ec2-user/sys_monitoring
         cd /home/ec2-user/sys_monitoring
+        sudo chmod +x ./replace_domain.sh
         sudo chmod +x ./prometheus/adjust_mon_targets.sh
+        sudo ./replace_domain.sh
         sudo ./prometheus/adjust_mon_targets.sh
         sudo ln -s /usr/local/bin/docker-compose /usr/bin/docker-compose
         sudo docker-compose up -d

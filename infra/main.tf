@@ -61,6 +61,8 @@ locals {
     for instance_key, instance in module.ec2_instance :
     instance_key => instance.private_ip
   }
+
+  domain_name = "public_domain_or_public_ip" # need to take from the alb after created
 }
 
 # EC2 Instance for monitoring
@@ -78,6 +80,7 @@ module "ec2_instance_monitor" {
   user_data = <<-EOF
         #!/bin/bash
         echo "${join("\n", values(local.ec2_private_ips))}" > /etc/mon_target_inst_ip
+        echo "${local.domain_name}" > /etc/domain_name
         ${var.ec2_monitoring_user_data}
         EOF
 
